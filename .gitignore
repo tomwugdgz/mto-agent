@@ -1,0 +1,18 @@
+# 依赖与构建产物
+node_modules/
+lib/
+dist/
+
+# 运行时状态
+.artifacts/
+*.sqlite
+*.sqlite-journal
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 本地配置
+.env
+.env.local
+*.local

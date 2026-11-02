@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MTO 可信链机器人 · 证据链自维护原型</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121821; --panel2:#0f151d; --line:#1e2733;
+    --fg:#e6edf3; --dim:#8b98a8; --dim2:#5d6b7c;
+    --acc:#2dd4bf; --acc2:#38bdf8;
+    --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --rose:#f43f5e;
+    --violet:#a78bfa; --pink:#f472b6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.6}
+  a{color:var(--acc2)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 60px}
+  header{border-bottom:1px solid var(--line);padding:22px 0 18px;margin-bottom:0}
+  h1{font-size:20px;margin:0 0 6px;letter-spacing:.5px}
+  h1 span{color:var(--acc)}
+  .sub{color:var(--dim);font-size:13px;margin:0}
+  .creed{margin-top:12px;padding:10px 14px;border-left:3px solid var(--acc);
+    background:var(--panel2);color:var(--dim);font-size:13px;border-radius:0 6px 6px 0}
+  .creed b{color:var(--fg);font-weight:600}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;min-width:96px}
+  .stat .n{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:11px;color:var(--dim2);letter-spacing:.4px}
+  .stat.hot{border-color:var(--warn);box-shadow:0 0 0 1px rgba(245,158,11,.25) inset}
+  .stat.hot .n{color:var(--warn)}
+
+  nav{display:flex;gap:2px;flex-wrap:wrap;margin:18px 0 0;border-bottom:1px solid var(--line)}
+  nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);
+    padding:9px 14px;font-size:13px;cursor:pointer;font-family:inherit}
+  nav button:hover{color:var(--fg)}
+  nav button.on{color:var(--acc);border-bottom-color:var(--acc)}
+  nav .dot{display:inline-block;min-width:16px;height:16px;line-height:16px;border-radius:8px;
+    background:var(--warn);color:#1a1200;font-size:10px;font-weight:700;padding:0 4px;margin-left:5px;vertical-align:1px}
+
+  section{display:none;padding-top:18px}
+  section.on{display:block}
+  h2{font-size:15px;margin:0 0 4px}
+  .hint{color:var(--dim2);font-size:12px;margin:0 0 14px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  .card.alert{border-color:#3b2f12;background:linear-gradient(180deg,#1a1608,#121821)}
+  .card h3{margin:0 0 8px;font-size:14px}
+  .row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .grow{flex:1 1 240px;min-width:200px}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim2);font-weight:500;font-size:11.5px;letter-spacing:.3px;white-space:nowrap}
+  td.mono,span.mono,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
+  tbody tr:hover{background:#151d27}
+
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;white-space:nowrap;
+    border:1px solid transparent;line-height:17px}
+  .tag.t-spec{color:#7dd3fc;border-color:#164e63;background:#0b2830}
+  .tag.t-price{color:#fca5a5;border-color:#5b1d1d;background:#2a1113}
+  .tag.t-cert{color:#fcd34d;border-color:#57430d;background:#2a2109}
+  .tag.t-case{color:#a78bfa;border-color:#3b2d6b;background:#1c1633}
+  .tag.t-promise{color:#6ee7b7;border-color:#14532d;background:#0c2418}
+  .tag.t-third{color:#f472b6;border-color:#5d1d42;background:#2a1024}
+  .tag.s-trusted{color:#4ade80;border-color:#14532d;background:#0c2418}
+  .tag.s-expiring{color:#fbbf24;border-color:#57430d;background:#2a2109}
+  .tag.s-stale{color:#94a3b8;border-color:#334155;background:#151d27}
+  .tag.s-expired{color:#f87171;border-color:#5b1d1d;background:#2a1113}
+  .tag.s-conflict{color:#fb7185;border-color:#5d1d42;background:#2a1024}
+  .tag.d-open{color:#38bdf8;border-color:#0c4a6e;background:#082f43}
+  .tag.d-observe{color:#94a3b8;border-color:#334155;background:#151d27}
+  .tag.d-deny{color:#f87171;border-color:#5b1d1d;background:#2a1113}
+
+  button.btn{background:#1b2431;border:1px solid #2b3644;color:var(--fg);border-radius:6px;
+    padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  button.btn:hover{background:#22303f;border-color:#3a4859}
+  button.btn.pri{background:var(--acc);border-color:var(--acc);color:#04211d;font-weight:600}
+  button.btn.pri:hover{background:#4ee0cd}
+  button.btn.dan{background:#2a1113;border-color:#5b1d1d;color:#fca5a5}
+  button.btn.dan:hover{background:#3a1618}
+  button.btn:disabled{opacity:.4;cursor:not-allowed}
+  button.btn.sm{padding:2px 8px;font-size:11.5px}
+
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:12.5px}
+  .kv dt{color:var(--dim2)}
+  .kv dd{margin:0;word-break:break-all}
+  .mono.sm{font-size:11px}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;
+    overflow:auto;font-size:11.5px;max-height:340px;margin:0}
+
+  .chain{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+  .blk{display:flex;gap:10px;padding:6px 8px;border-left:2px solid var(--line);margin-bottom:2px;align-items:baseline}
+  .blk:hover{background:#151d27}
+  .blk .seq{color:var(--dim2);width:38px;flex:none}
+  .blk .ty{width:132px;flex:none;color:var(--acc2)}
+  .blk .h{color:var(--dim);flex:1;word-break:break-all}
+  .blk.bad{border-left-color:var(--bad);background:#2a1113}
+  .blk.bad .h{color:#fca5a5}
+  .blk.anchor{border-left-color:var(--violet)}
+  .blk.anchor .ty{color:var(--violet)}
+
+  .banner{padding:9px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;border:1px solid}
+  .banner.ok{background:#0c2418;border-color:#14532d;color:#6ee7b7}
+  .banner.bad{background:#2a1113;border-color:#5b1d1d;color:#fca5a5}
+  .banner.info{background:#082f43;border-color:#0c4a6e;color:#7dd3fc}
+
+  .feed{max-height:420px;overflow:auto}
+  .ev{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .ev .t{color:var(--dim2);width:62px;flex:none;font-family:ui-monospace,Menlo,monospace;font-size:11px}
+  .ev .b{flex:1}
+  .switch{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim)}
+  input[type=text],input[type=number],select,textarea{background:var(--panel2);border:1px solid var(--line);
+    color:var(--fg);border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12.5px;width:100%}
+  textarea{min-height:70px;resize:vertical}
+  label.f{display:block;font-size:11.5px;color:var(--dim2);margin-bottom:3px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr} .blk .ty{width:auto}}
+  footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);color:var(--dim2);font-size:12px}
+  .muted{color:var(--dim2)}
+  .nowrap{white-space:nowrap}
+  .right{text-align:right}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>MTO 可信链机器人<span> · 证据链自维护原型</span></h1>
+  <p class="sub">Machine Trust Optimization — 一个常驻监听器 + 一条不可篡改的哈希链。Agent 负责维护，哈希负责被相信。</p>
+  <div class="creed">
+    原则：<b>尽可能少占用人的注意力，给尽可能多的价值。</b>监听器吞掉 95% 的「一切正常」，只在有人必须动手时出声。<br>
+    边界：<b>Agent 让证据链可以被维护，但只有不可篡改，让证据链值得被相信。</b>本页的链由浏览器 SHA-256 逐块串联，任何一块被改写都会暴露。
+  </div>
+  <div class="stats" id="stats"></div>
+  <nav id="nav"></nav>
+</header>
+
+<main>
+  <!-- ============ 需要人 ============ -->
+  <section id="s-need" class="on">
+    <h2>需要人</h2>
+    <p class="hint">面板只列出在等你的东西。其余状态不占空间——这是设计，不是缺功能。</p>
+    <div id="need"></div>
+  </section>
+
+  <!-- ============ 证据台账 ============ -->
+  <section id="s-evidence">
+    <h2>证据台账</h2>
+    <p class="hint">每一条对外主张 = 一条原子事实。它有类型、引用源、有效期和最近核验时间。状态由监听器维护，不是由人记得去查。</p>
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <div class="grow"><label class="f">筛选状态</label>
+          <select id="f-state"><option value="">全部</option></select></div>
+        <div class="grow"><label class="f">筛选类型</label>
+          <select id="f-type"><option value="">全部</option></select></div>
+        <div class="grow"><label class="f">搜索主张</label>
+          <input type="text" id="f-q" placeholder="关键词"></div>
+        <div style="align-self:flex-end"><button class="btn" id="add-ev">+ 新增证据</button></div>
+      </div>
+      <div style="overflow:auto"><table id="ev-table"></table></div>
+    </div>
+    <div class="card" id="add-card" style="display:none">
+      <h3>新增一条原子事实</h3>
+      <div class="grid2">
+        <div><label class="f">主张（对外原话）</label><input type="text" id="n-claim" placeholder="例：Y3 网关工作温度 -40℃ ~ 75℃"></div>
+        <div><label class="f">类型</label><select id="n-type"></select></div>
+        <div><label class="f">引用源</label><input type="text" id="n-source" placeholder="例：官网/spec/y3 · 内部文档 D-104"></div>
+        <div><label class="f">有效期至</label><input type="text" id="n-until" placeholder="YYYY-MM-DD，留空为长期"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn pri" id="n-save">写入台账并上链</button>
+        <button class="btn" id="n-cancel">取消</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 监听器 ============ -->
+  <section id="s-listener">
+    <h2>常驻监听器</h2>
+    <p class="hint">不定时巡检，等事件发生：证据到期、引用源变更、第三方表述漂移、竞品改了引用源。命中后交给门禁裁决。</p>
+    <div class="card">
+      <div class="row">
+        <div class="switch"><button class="btn pri" id="toggle">暂停监听</button>
+          <span id="lstate" class="muted"></span></div>
+        <div class="grow"></div>
+        <div><label class="f">注入一个事件</label>
+          <select id="inject-type"></select></div>
+        <div style="align-self:flex-end"><button class="btn" id="inject">注入</button></div>
+      </div>
+      <p class="hint" style="margin:10px 0 0">每 6 秒一次心跳，按概率命中真实存在的薄弱证据。事件只有在台账里真有对应问题时才会产生——不制造噪音。</p>
+    </div>
+    <div class="card"><h3>事件流</h3><div class="feed" id="feed"></div></div>
+  </section>
+
+  <!-- ============ 门禁 ============ -->
+  <section id="s-gate">
+    <h2>门禁（Policy）</h2>
+    <p class="hint">授权边界是安全边界，不是效率问题。门禁决定「什么情况下可以自动动手」。裁决三选一：自动开工单 / 仅记录不动手 / 拒绝并告警。</p>
+    <div class="card">
+      <table id="gate-table"></table>
+    </div>
+    <div class="card">
+      <h3>Mandate（不可变授权凭证）</h3>
+      <p class="hint">每一次被许可的动作，都附带一张不可变凭证：谁发起、依据哪条规则、策略版本、作用域、强度、生效时间。证据链完整的样子，不只有「现在是什么」，还有「怎么变成现在这样的」。</p>
+      <div style="overflow:auto"><table id="mandate-table"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ 可信链 ============ -->
+  <section id="s-chain">
+    <h2>可信链</h2>
+    <p class="hint">审计日志不能自己写自己。每一块的哈希由前一块决定，改任何一块，后面全部对不上；根哈希可锚定到 Agent 改不了的地方。</p>
+    <div class="card">
+      <div class="row">
+        <button class="btn pri" id="verify">校验全链</button>
+        <button class="btn dan" id="tamper">模拟篡改</button>
+        <button class="btn" id="anchor">锚定根哈希</button>
+        <button class="btn" id="export">导出审计包</button>
+        <div class="grow"></div>
+        <span class="muted mono" id="chain-meta"></span>
+      </div>
+      <div id="verify-out" style="margin-top:12px"></div>
+      <div id="anchor-out" style="margin-top:10px"></div>
+    </div>
+    <div class="card"><h3>区块</h3><div class="chain" id="chain"></div></div>
+  </section>
+
+  <!-- ============ 审计 ============ -->
+  <section id="s-audit">
+    <h2>审计与交付</h2>
+    <p class="hint">交付物从一份 PPT，变成一个持续运行的系统 + 一份审计日志。计价单位从「按项目」变成「有多少条主张处于可信状态」。</p>
+    <div class="card">
+      <div class="row">
+        <button class="btn" id="copy-json">复制审计包</button>
+        <button class="btn" id="dl-json">下载 JSON</button>
+        <button class="btn dan" id="reset">重置演示数据</button>
+      </div>
+      <p class="hint" style="margin-top:10px">审计包包含：证据台账快照、全部事件与门禁裁决、全部 Mandate、完整哈希链与锚点记录。可离线复核。</p>
+      <pre id="audit-pre"></pre>
+    </div>
+    <div class="card">
+      <h3>本页能证明什么 / 不能证明什么</h3>
+      <div class="kv">
+        <dt>能证明</dt><dd>链上任何一块被改写、被删除、被重排，校验都会定位到具体块号。</dd>
+        <dt>能证明</dt><dd>每一次变更都有 Mandate：发起人、规则、策略版本、作用域、时间。</dd>
+        <dt>不能证明</dt><dd>浏览器 localStorage 本身可被人为清空——所以根哈希必须锚定到 Agent 改不了的地方（时间戳服务、公开账本、第三方存证）。</dd>
+        <dt>不能证明</dt><dd>引用源的真实性。链只保证「记录没被改」，不保证「记录是对的」。核验仍需人批准。</dd>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  MTO 可信链机器人 · 原型页面 · 单文件纯前端，无后端、无外部依赖 · 哈希算法 SHA-256（Web Crypto）<br>
+  同源概念来自 DeepSeek 开源研究原型 dsh-superagent-prototype 的设计：Source / Trigger / Eval / Mandate / Ticket，以及「尽可能少占用人的注意力」这条原则。
+</footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+const ZERO = '0'.repeat(64);
+const LS = 'mto_chain_state_v1';
+
+/* ---------------- 词表 ---------------- */
+const TYPES = {
+  spec:   '产品参数', price: '价格政策', cert: '资质认证',
+  case:   '客户案例', promise: '服务承诺', third: '第三方表述'
+};
+const STATES = {
+  trusted:'可信', expiring:'即将到期', stale:'待核验', expired:'已过期', conflict:'表述冲突'
+};
+const EVENTS = {
+  expiry:'证据到期', source_change:'引用源变更', drift:'第三方表述漂移',
+  competitor:'竞品引用源变更', param_change:'产品参数变更'
+};
+const DECIDE = { open:'自动开工单', observe:'仅记录', deny:'拒绝' };
+const STRENGTH = { low:'低（仅内部记录）', medium:'中（提交变更建议）', high:'高（涉及对外承诺）' };
+
+/* ---------------- 种子数据 ---------------- */
+function seedEvidence(){
+  const d = (n)=>{const t=new Date();t.setDate(t.getDate()+n);return t.toISOString().slice(0,10)};
+  return [
+    ['Y3 边缘网关工作温度 -40℃ ~ 75℃','spec','官网/spec/y3 · 内部文档 D-104','',-40],
+    ['Y3 边缘网关支持 5G 双卡聚合','spec','官网/spec/y3 · 硬件白皮书 v3.2','',-22],
+    ['Y3 边缘网关整机功耗 ≤ 18W','spec','官网/spec/y3 · 第三方检测报告 TR-2210','',-8],
+    ['Y3 边缘网关支持 IP67 防护等级','spec','官网/spec/y3 · 检测报告 TR-2210','',-15],
+    ['X5 工业传感器量程 0 ~ 40MPa','spec','官网/spec/x5 · 规格书 v1.8','',-30],
+    ['X5 工业传感器精度 ±0.1% FS','spec','官网/spec/x5 · 校准证书 CA-8801',d(11),-5],
+    ['全系产品标准质保三年','price','官网/support/warranty · 条款 T-03','',-60],
+    ['Y3 标准版售价 ¥12,800 / 台','price','官网/pricing · 价目表 2026Q3','',-12],
+    ['批量 50 台以上享 8.5 折','price','官网/pricing · 渠道政策 P-11','',-3],
+    ['定制开发按人天计价 ¥2,400 / 人天','price','官网/pricing · 服务价目表','',-45],
+    ['ISO 9001 质量管理体系认证','cert','认证机构证书 C-2019-0342',d(9),-20],
+    ['CE 认证（欧盟合规）','cert','公告机构证书 NB-1288','',-100],
+    ['防爆认证 Ex ia IIC T4','cert','国家防爆质检中心证书 GY-7721',d(4),-18],
+    ['软件著作权登记证书（监控平台）','cert','国家版权局 软著登字第 8821 号','',-200],
+    ['某能源集团部署 1200 台 Y3 网关','case','客户验收报告 + 授权书 AU-2025-07',d(21),-9],
+    ['某车企产线故障率下降 37%','case','客户联合署名案例 · 授权书 AU-2025-11','',-7],
+    ['服务过的客户超过 300 家','case','CRM 统计口径 2026Q2','',-33],
+    ['7×24 小时技术支持响应','promise','官网/support/sla · SLA 文档 S-01','',-25],
+    ['承诺 4 小时内响应现场故障','promise','官网/support/sla · SLA 文档 S-01','',-14],
+    ['数据不出境，符合本地合规要求','promise','官网/legal/compliance','',-50],
+    ['知乎：Y3 网关被描述为「防水等级 IP68」','third','知乎问答 2026-08-14','',-2],
+    ['京东详情页：标注「质保一年」','third','京东自营详情页','',-1],
+    ['小红书：称 Y3 支持 Wi-Fi 7','third','小红书笔记 2026-10-02','',-6],
+    ['AI 问答摘要：称本品牌为「行业第一」','third','某 AI 搜索摘要 2026-10-28','',-1]
+  ].map((r,i)=>({
+    id:'E-' + String(i+1).padStart(3,'0'),
+    claim:r[0], type:r[1], source:r[2],
+    until:r[3] || '',
+    verified: d(r[4] || -1),
+    state:'trusted', conflicts:0
+  }));
+}
+function seedRules(){
+  return [
+    {id:'R1', on:'cert',     ev:'expiry',        decide:'open',    strength:'high',   basis:'资质到期即失去对外宣称资格，变更等于对外承诺，必须人批'},
+    {id:'R2', on:'price',    ev:'',              decide:'open',    strength:'high',   basis:'价格与政策是对外承诺，禁止自动发布'},
+    {id:'R3', on:'spec',     ev:'source_change', decide:'open',    strength:'medium', basis:'技术参数可追溯至检测报告，允许自动核验并提交变更建议'},
+    {id:'R4', on:'third',    ev:'drift',         decide:'open',    strength:'low',    basis:'第三方表述漂移只提交修正建议，不直接改写他方平台'},
+    {id:'R5', on:'case',     ev:'expiry',        decide:'open',    strength:'medium', basis:'案例需授权续期，未续期前不得继续展示'},
+    {id:'R6', on:'',         ev:'competitor',    decide:'observe', strength:'low',    basis:'竞品变更只记录情报，不触发我方任何动作'}
+  ];
+}
+
+/* ---------------- 状态 ---------------- */
+let S = null, running = true, timer = null;
+
+function fresh(){
+  return {
+    evidence: seedEvidence(),
+    rules: seedRules(),
+    policyVersion: 1,
+    tickets: [],
+    mandates: [],
+    events: [],
+    chain: [],
+    anchors: [],
+    tampered: null,
+    seqTicket: 0
+  };
+}
+function recomputeStates(){
+  S.evidence.forEach(e=>{
+    const dd = days(e.until);
+    e.state = dd === null ? 'trusted' : (dd < 0 ? 'expired' : (dd <= 30 ? 'expiring' : 'trusted'));
+  });
+}
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(S)) }catch(e){} }
+function load(){
+  try{
+    const raw = localStorage.getItem(LS);
+    if(raw){ const p = JSON.parse(raw); if(p && Array.isArray(p.chain) && Array.isArray(p.evidence)) return p }
+  }catch(e){}
+  return null;
+}
+
+/* ---------------- 哈希链 ---------------- */
+const enc = new TextEncoder();
+async function sha256(s){
+  const d = await crypto.subtle.digest('SHA-256', enc.encode(s));
+  return Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function canon(v){
+  if(v === null || typeof v !== 'object') return JSON.stringify(v === undefined ? null : v);
+  if(Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+  return '{' + Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',') + '}';
+}
+async function blockHash(b){ return sha256(canon({seq:b.seq, ts:b.ts, type:b.type, payload:b.payload, prev:b.prev})) }
+
+let tail = Promise.resolve();
+function append(type, payload){
+  tail = tail.then(async ()=>{
+    const prev = S.chain.length ? S.chain[S.chain.length-1].hash : ZERO;
+    const b = { seq:S.chain.length, ts:Date.now(), type, payload, prev };
+    b.hash = await blockHash(b);
+    S.chain.push(b); save();
+  });
+  return tail;
+}
+async function verifyChain(){
+  for(let i=0;i<S.chain.length;i++){
+    const b = S.chain[i];
+    const want = i===0 ? ZERO : S.chain[i-1].hash;
+    if(b.prev !== want) return {ok:false, at:i, why:'前置哈希与上一块不一致（第 '+i+' 块被插入、删除或重排）'};
+    if(await blockHash(b) !== b.hash) return {ok:false, at:i, why:'块哈希与内容不符（第 '+i+' 块内容被改写）'};
+  }
+  return {ok:true, n:S.chain.length};
+}
+
+/* ---------------- 工具 ---------------- */
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const short = h => h.slice(0,12) + '…' + h.slice(-6);
+const pad = n => String(n).padStart(2,'0');
+function fmt(ts){ const d = ts ? new Date(ts) : new Date();
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes()) }
+function days(iso){ if(!iso) return null; return Math.ceil((new Date(iso+'T23:59:59') - Date.now())/86400000) }
+function pick(a){ return a[Math.floor(Math.random()*a.length)] }
+const $ = id => document.getElementById(id);
+
+/* ---------------- 事件与门禁 ---------------- */
+function weakEvidence(){
+  const out = [];
+  S.evidence.forEach(e=>{
+    const dd = days(e.until);
+    if(dd !== null && dd <= 30) out.push({e, ev:'expiry'});
+    if(e.type === 'third' && Math.random() < .5) out.push({e, ev:'drift'});
+    if(e.type === 'spec') out.push({e, ev:'source_change'});
+    if(e.state === 'stale' || e.state === 'expired') out.push({e, ev:'param_change'});
+  });
+  return out;
+}
+function gate(e, ev){
+  const hit = S.rules.find(r=> r.on === e.type && (!r.ev || r.ev === ev))
+           || S.rules.find(r=> !r.on && r.ev === ev);
+  return hit || null;
+}
+async function ingest(e, ev, note){
+  // 同一条证据已有待批工单时不再打扰：能替团队行动的 Agent，同样有能力浪费团队的注意力。
+  if(S.tickets.some(t=>t.eid===e.id && t.state==='proposed')) return;
+  const evRec = { ts:Date.now(), eid:e.id, claim:e.claim, ev, note:note||'' };
+  S.events.unshift(evRec); S.events = S.events.slice(0,200);
+  const r = gate(e, ev);
+  const decide = r ? r.decide : 'deny';
+  await append('event_detected', {eid:e.id, ev, note:evRec.note});
+  await append('gate_decision', {eid:e.id, ev, rule:r?r.id:null, decide, basis:r?r.basis:'无匹配规则，默认拒绝'});
+  evRec.rule = r ? r.id : null;
+  evRec.decide = decide;
+
+  if(decide === 'deny'){
+    if(ev === 'expiry') e.state = 'expired'; else { e.state = 'conflict'; e.conflicts++; }
+  }
+  if(decide === 'observe'){ /* 只记录，不动手 */ }
+  if(decide === 'open'){ await openTicket(e, ev, r); }
+  save(); render();
+}
+async function openTicket(e, ev, r){
+  const id = 'T-' + String(++S.seqTicket).padStart(3,'0');
+  const m = {
+    mid:'M-'+id.slice(2)+'-'+Math.random().toString(36).slice(2,6),
+    ticket:id, policyVersion:S.policyVersion,
+    scope:'证据 '+e.id+' 的核验与更新',
+    strength:r.strength, rule:r.id, basis:r.basis,
+    initiator:'listener:rule:'+r.id,
+    issuedAt:Date.now(),
+    immutable:true
+  };
+  S.mandates.unshift(m);
+  const newVal = propose(e, ev);
+  const sess = 'sess-' + Math.random().toString(36).slice(2,8);
+  const t = {
+    id, mid:m.mid, eid:e.id, ev, rule:r.id,
+    session:sess,
+    dir:'/srv/mto/sessions/'+sess,
+    state:'proposed', created:Date.now(),
+    old:{claim:e.claim, source:e.source, until:e.until},
+    proposal:newVal
+  };
+  S.tickets.unshift(t);
+  await append('mandate_issued', m);
+  await append('ticket_created', {ticket:id, mid:m.mid, eid:e.id, rule:r.id, session:t.session});
+  await append('session_started', {ticket:id, session:t.session, dir:t.dir, isolated:true});
+  await append('change_proposed', {ticket:id, eid:e.id, from:t.old, to:t.proposal});
+}
+function propose(e, ev){
+  const today = new Date(); today.setFullYear(today.getFullYear()+1);
+  const next = today.toISOString().slice(0,10);
+  const base = { source:e.source, until:e.until, note:'' };
+  if(ev === 'expiry') return {claim:e.claim, source:e.source + '（已续期，新证书编号待回填）', until:next,
+    note:'授权/资质已到期，需人工上传新凭证后重建可信状态', confidence:0.62};
+  if(ev === 'source_change') return {claim:e.claim, source:e.source.replace(/v[\d.]+/,'v'+(Math.random()*3+3).toFixed(1)),
+    until:e.until, note:'引用源版本号更新，参数值本身未变，核验通过', confidence:0.91};
+  if(ev === 'drift') return {claim:e.claim.replace(/IP68/,'IP67').replace(/质保一年/,'质保三年').replace(/Wi-Fi 7/,'不支持 Wi-Fi'),
+    source:e.source, until:e.until, note:'第三方表述与官网不一致，建议发起平台更正请求', confidence:0.78};
+  if(ev === 'param_change') return {claim:e.claim, source:e.source + ' · 重新核验 '+fmt(),
+    until:e.until, note:'参数长期未核验，已重新比对原始检测报告', confidence:0.85};
+  return Object.assign(base, {claim:e.claim, confidence:0.5});
+}
+
+/* ---------------- 审批 ---------------- */
+async function approve(id){
+  const t = S.tickets.find(x=>x.id===id); if(!t) return;
+  const e = S.evidence.find(x=>x.id===t.eid); if(!e) return;
+  await append('ticket_approved', {ticket:id, mid:t.mid, by:'operator', at:Date.now()});
+  e.claim = t.proposal.claim || e.claim;
+  e.source = t.proposal.source || e.source;
+  e.until = t.proposal.until || e.until;
+  e.verified = new Date().toISOString().slice(0,10);
+  e.state = 'trusted'; e.conflicts = 0;
+  t.state = 'approved';
+  await append('evidence_updated', {eid:e.id, claim:e.claim, source:e.source, until:e.until, by:'mandate:'+t.mid});
+  save(); render();
+}
+async function reject(id){
+  const t = S.tickets.find(x=>x.id===id); if(!t) return;
+  const e = S.evidence.find(x=>x.id===t.eid);
+  await append('ticket_rejected', {ticket:id, mid:t.mid, by:'operator', at:Date.now(), reason:'人驳回，证据保持原状'});
+  t.state = 'rejected';
+  if(e) e.state = 'stale';
+  save(); render();
+}
+
+/* ---------------- 渲染 ---------------- */
+const TABS = [
+  ['need','需要人'], ['evidence','证据台账'], ['listener','监听器'],
+  ['gate','门禁规则'], ['chain','可信链'], ['audit','审计']
+];
+function renderNav(){
+  const pend = S.tickets.filter(t=>t.state==='proposed').length;
+  $('nav').innerHTML = TABS.map(([k,l])=>
+    '<button data-t="'+k+'" class="'+(current===k?'on':'')+'">'+l+
+    (k==='need'&&pend?'<span class="dot">'+pend+'</span>':'')+'</button>').join('');
+  $('nav').querySelectorAll('button').forEach(b=>b.onclick=()=>{ current=b.dataset.t; render() });
+}
+let current = 'need';
+
+function renderStats(){
+  const c = {}; Object.keys(STATES).forEach(k=>c[k]=0);
+  S.evidence.forEach(e=>c[e.state]++);
+  const pend = S.tickets.filter(t=>t.state==='proposed').length;
+  const items = [
+    ['证据总数', S.evidence.length, ''],
+    ['可信声明', c.trusted, ''],
+    ['待人工', pend, pend?'hot':''],
+    ['即将到期', c.expiring, ''],
+    ['已过期/冲突', c.expired+c.conflict, (c.expired+c.conflict)?'hot':''],
+    ['链高', S.chain.length, ''],
+    ['策略版本', 'v'+S.policyVersion, ''],
+    ['锚点', S.anchors.length, '']
+  ];
+  $('stats').innerHTML = items.map(([l,n,h])=>
+    '<div class="stat '+h+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>').join('');
+}
+
+function renderNeed(){
+  const pend = S.tickets.filter(t=>t.state==='proposed');
+  const drifted = S.evidence.filter(e=>e.state==='conflict');
+  let h = '';
+  if(!pend.length && !drifted.length){
+    h = '<div class="banner ok">没有需要你做的事。这是系统健康的样子——它不占你的注意力，只在有事时出声。</div>';
+  }
+  if(pend.length){
+    h += pend.map(t=>{
+      const e = S.evidence.find(x=>x.id===t.eid);
+      const m = S.mandates.find(x=>x.mid===t.mid);
+      return '<div class="card alert">'+
+        '<div class="row"><div class="grow"><h3>'+esc(t.id)+' · '+esc(EVENTS[t.ev])+'</h3>'+
+        '<div class="muted" style="font-size:12.5px">证据 '+esc(t.eid)+' · 命中规则 '+esc(t.rule)+' · 强度 '+
+          '<span class="tag d-open">'+esc(STRENGTH[m?m.strength:'low'])+'</span></div></div>'+
+        '<div class="right"><span class="mono muted">'+esc(t.session)+'</span><br>'+
+        '<span class="mono muted" style="font-size:11px">'+esc(t.dir)+'</span></div></div>'+
+        '<table style="margin:10px 0"><tbody>'+
+        '<tr><th style="width:70px">现状</th><td>'+esc(t.old.claim)+'<div class="mono muted">'+esc(t.old.source)+'</div></td></tr>'+
+        '<tr><th>建议</th><td>'+esc(t.proposal.claim)+'<div class="mono muted">'+esc(t.proposal.source)+
+          (t.proposal.until?' · 有效期至 '+esc(t.proposal.until):'')+'</div></td></tr>'+
+        '<tr><th>依据</th><td>'+esc(t.proposal.note)+' <span class="muted">· 置信度 '+t.proposal.confidence+'</span></td></tr>'+
+        '</tbody></table>'+
+        '<div class="kv" style="margin-bottom:10px">'+
+          '<dt>Mandate</dt><dd class="mono sm">'+esc(t.mid)+'</dd>'+
+          '<dt>策略版本</dt><dd>v'+esc(m?m.policyVersion:'-')+' · 规则 '+esc(t.rule)+'</dd>'+
+          '<dt>发起人</dt><dd class="mono sm">'+esc(m?m.initiator:'-')+'</dd>'+
+          '<dt>作用域</dt><dd>'+esc(m?m.scope:'-')+'</dd>'+
+          '<dt>签发时间</dt><dd class="mono sm">'+(m?fmt(m.issuedAt):'-')+'</dd>'+
+        '</div>'+
+        '<div class="row"><button class="btn pri" data-ap="'+t.id+'">批准并更新证据</button>'+
+        '<button class="btn dan" data-rj="'+t.id+'">驳回</button>'+
+        '<span class="muted" style="font-size:12px">批准后写入链；驳回同样写入链，且证据转为待核验</span></div>'+
+      '</div>';
+    }).join('');
+  }
+  if(drifted.length){
+    h += '<div class="card"><h3>表述冲突（无匹配规则，已拒绝自动动作）</h3><table><thead><tr><th>证据</th><th>主张</th><th>来源</th></tr></thead><tbody>'+
+      drifted.map(e=>'<tr><td class="mono">'+esc(e.id)+'</td><td>'+esc(e.claim)+'</td><td class="mono muted">'+esc(e.source)+'</td></tr>').join('')+
+      '</tbody></table><p class="hint" style="margin-top:8px">没有规则覆盖的事件不会自动动手——默认拒绝，而不是默认放行。</p></div>';
+  }
+  const done = S.tickets.filter(t=>t.state!=='proposed').slice(0,6);
+  if(done.length){
+    h += '<div class="card"><h3>最近处理</h3><table><thead><tr><th>工单</th><th>证据</th><th>结果</th><th>Mandate</th></tr></thead><tbody>'+
+      done.map(t=>'<tr><td class="mono">'+esc(t.id)+'</td><td class="mono">'+esc(t.eid)+'</td><td>'+
+        (t.state==='approved'?'<span class="tag s-trusted">已批准</span>':'<span class="tag s-stale">已驳回</span>')+
+        '</td><td class="mono muted">'+esc(t.mid)+'</td></tr>').join('')+'</tbody></table></div>';
+  }
+  $('need').innerHTML = h;
+  $('need').querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>approve(b.dataset.ap));
+  $('need').querySelectorAll('[data-rj]').forEach(b=>b.onclick=()=>reject(b.dataset.rj));
+}
+
+function renderEvidence(){
+  const fs = $('f-state').value, ft = $('f-type').value, q = ($('f-q').value||'').trim();
+  const rows = S.evidence.filter(e=>
+    (!fs || e.state===fs) && (!ft || e.type===ft) && (!q || e.claim.includes(q) || e.source.includes(q)));
+  $('ev-table').innerHTML = '<thead><tr><th>ID</th><th>主张</th><th>类型</th><th>状态</th><th>引用源</th><th>有效期</th><th>最近核验</th></tr></thead><tbody>'+
+    (rows.length ? rows.map(e=>{
+      const dd = days(e.until);
+      const until = e.until ? esc(e.until) + (dd<0 ? ' <span class="tag s-expired">已过期</span>' : (dd<=30?' <span class="tag s-expiring">'+dd+'天</span>':'')) : '<span class="muted">长期</span>';
+      return '<tr><td class="mono">'+esc(e.id)+'</td><td>'+esc(e.claim)+'</td>'+
+        '<td><span class="tag t-'+e.type+'">'+esc(TYPES[e.type])+'</span></td>'+
+        '<td><span class="tag s-'+e.state+'">'+esc(STATES[e.state])+'</span></td>'+
+        '<td class="mono muted">'+esc(e.source)+'</td><td class="nowrap">'+until+'</td>'+
+        '<td class="nowrap muted">'+esc(e.verified)+'</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="muted">没有匹配的证据</td></tr>')+'</tbody>';
+}
+
+function renderListener(){
+  $('lstate').textContent = running ? '监听中 · 心跳 6s' : '已暂停';
+  $('feed').innerHTML = S.events.length ? S.events.slice(0,60).map(x=>
+    '<div class="ev"><span class="t">'+fmt(x.ts).slice(11)+'</span><span class="b">'+
+      '<span class="tag t-'+ (S.evidence.find(e=>e.id===x.eid)||{type:'spec'}).type +'">'+esc(EVENTS[x.ev])+'</span> '+
+      esc(x.claim.slice(0,42))+'… '+
+      (x.rule ? '<span class="tag d-'+x.decide+'">'+esc(DECIDE[x.decide])+' · '+esc(x.rule)+'</span>'
+              : '<span class="tag d-deny">默认拒绝</span>')+
+      (x.note?'<div class="muted" style="font-size:11.5px">'+esc(x.note)+'</div>':'')+
+    '</span></div>').join('')
+    : '<div class="muted">还没有事件。点「注入」或等一次心跳。</div>';
+}
+
+function renderGate(){
+  $('gate-table').innerHTML = '<thead><tr><th>规则</th><th>作用域</th><th>事件</th><th>裁决</th><th>强度</th><th>依据</th><th></th></tr></thead><tbody>'+
+    S.rules.map(r=>'<tr>'+
+      '<td class="mono">'+esc(r.id)+'</td>'+
+      '<td>'+(r.on?'<span class="tag t-'+r.on+'">'+esc(TYPES[r.on])+'</span>':'<span class="muted">全部</span>')+'</td>'+
+      '<td>'+(r.ev?'<span class="muted">'+esc(EVENTS[r.ev])+'</span>':'<span class="muted">全部</span>')+'</td>'+
+      '<td><select data-r="'+r.id+'" data-k="decide" class="sm">'+Object.keys(DECIDE).map(k=>
+        '<option value="'+k+'"'+(r.decide===k?' selected':'')+'>'+esc(DECIDE[k])+'</option>').join('')+'</select></td>'+
+      '<td><select data-r="'+r.id+'" data-k="strength">'+Object.keys(STRENGTH).map(k=>
+        '<option value="'+k+'"'+(r.strength===k?' selected':'')+'>'+esc(STRENGTH[k])+'</option>').join('')+'</select></td>'+
+      '<td class="muted" style="min-width:220px">'+esc(r.basis)+'</td>'+
+      '<td><button class="btn sm" data-delr="'+r.id+'">删除</button></td>'+
+    '</tr>').join('')+'</tbody>'+
+    '<tfoot><tr><td colspan="7"><button class="btn sm" id="addrule">+ 新增规则</button> '+
+    '<span class="muted">改规则会生成新的策略版本；已签发的 Mandate 不会被追溯修改。</span></td></tr></tfoot>';
+
+  $('gate-table').querySelectorAll('select[data-r]').forEach(s=>s.onchange=async ()=>{
+    const r = S.rules.find(x=>x.id===s.dataset.r); r[s.dataset.k] = s.value;
+    S.policyVersion++;
+    await append('policy_changed', {rule:r.id, key:s.dataset.k, value:s.value, version:S.policyVersion});
+    save(); render();
+  });
+  $('gate-table').querySelectorAll('[data-delr]').forEach(b=>b.onclick=async ()=>{
+    S.rules = S.rules.filter(x=>x.id!==b.dataset.delr); S.policyVersion++;
+    await append('policy_changed', {rule:b.dataset.delr, key:'removed', version:S.policyVersion});
+    save(); render();
+  });
+  $('addrule').onclick = async ()=>{
+    const id = 'R'+(S.rules.length+1);
+    S.rules.push({id, on:'spec', ev:'', decide:'observe', strength:'low', basis:'新规则，默认仅记录'});
+    S.policyVersion++;
+    await append('policy_changed', {rule:id, key:'added', version:S.policyVersion});
+    save(); render();
+  };
+
+  $('mandate-table').innerHTML = S.mandates.length ?
+    '<thead><tr><th>Mandate</th><th>工单</th><th>策略版本</th><th>规则</th><th>强度</th><th>作用域</th><th>发起人</th><th>签发</th></tr></thead><tbody>'+
+    S.mandates.slice(0,30).map(m=>'<tr>'+
+      '<td class="mono">'+esc(m.mid)+'</td><td class="mono">'+esc(m.ticket)+'</td>'+
+      '<td class="mono">v'+esc(m.policyVersion)+'</td><td class="mono">'+esc(m.rule)+'</td>'+
+      '<td><span class="tag d-open">'+esc(STRENGTH[m.strength])+'</span></td>'+
+      '<td>'+esc(m.scope)+'</td><td class="mono muted">'+esc(m.initiator)+'</td>'+
+      '<td class="nowrap muted">'+fmt(m.issuedAt)+'</td></tr>').join('')+'</tbody>'
+    : '<tbody><tr><td class="muted">还没有签发过 Mandate。去监听器注入一个事件。</td></tr></tbody>';
+}
+
+const TYPE_LABEL = Object.assign({genesis:'创世块', anchor:'锚定'}, {
+  event_detected:'事件检出', gate_decision:'门禁裁决', mandate_issued:'签发 Mandate',
+  ticket_created:'创建工单', session_started:'开独立会话', change_proposed:'提出变更',
+  ticket_approved:'人批准', ticket_rejected:'人驳回', evidence_updated:'证据更新',
+  evidence_added:'证据入册', policy_changed:'策略变更'
+});
+function renderChain(){
+  $('chain-meta').textContent = S.chain.length + ' 块 · 根 ' + (S.chain.length? short(S.chain[S.chain.length-1].hash):'—');
+  const bad = S.tampered;
+  $('chain').innerHTML = S.chain.length ? S.chain.slice().reverse().map(b=>{
+    const isBad = bad !== null && b.seq === bad;
+    const isAnchor = b.type === 'anchor';
+    return '<div class="blk'+(isBad?' bad':'')+(isAnchor?' anchor':'')+'">'+
+      '<span class="seq">#'+b.seq+'</span>'+
+      '<span class="ty">'+esc(TYPE_LABEL[b.type]||b.type)+'</span>'+
+      '<span class="h">'+esc(b.hash)+'</span>'+
+      '<span class="muted">← '+short(b.prev)+'</span></div>';
+  }).join('') : '<div class="muted">链是空的。</div>';
+
+  const lastAnchor = S.anchors.length ? S.anchors[S.anchors.length-1] : null;
+  if(lastAnchor){
+    const tip = S.chain.length ? S.chain[S.chain.length-1].hash : ZERO;
+    const ok = tip === lastAnchor.root && S.chain.length === lastAnchor.height;
+    $('anchor-out').innerHTML = '<div class="banner '+(ok?'ok':'bad')+'">'+
+      (ok ? '链与最近锚点一致：根 '+short(lastAnchor.root)+' · 高度 '+lastAnchor.height+' · 锚定于 '+fmt(lastAnchor.at)
+          : '链已偏离锚点：锚点记录根 '+short(lastAnchor.root)+'（高度 '+lastAnchor.height+'），当前根 '+short(tip)+'（高度 '+S.chain.length+'）。锚定之后发生的任何改动都会暴露。')+
+      '</div>';
+  } else $('anchor-out').innerHTML = '';
+}
+
+function renderAudit(){
+  const pack = {
+    tool:'MTO 可信链机器人', generatedAt:new Date().toISOString(),
+    policyVersion:S.policyVersion,
+    summary:{ evidence:S.evidence.length, trusted:S.evidence.filter(e=>e.state==='trusted').length,
+      pending:S.tickets.filter(t=>t.state==='proposed').length,
+      chainHeight:S.chain.length, anchors:S.anchors.length },
+    evidence:S.evidence, rules:S.rules, mandates:S.mandates,
+    events:S.events.slice(0,100), tickets:S.tickets,
+    chain:S.chain, anchors:S.anchors
+  };
+  const txt = JSON.stringify(pack, null, 2);
+  $('audit-pre').textContent = txt.length > 20000 ? txt.slice(0,20000) + '\n…（已截断，点下载获取完整包）' : txt;
+  window.__pack = txt;
+}
+
+function render(){
+  renderNav(); renderStats();
+  document.querySelectorAll('section').forEach(s=>s.classList.toggle('on', s.id==='s-'+current));
+  if(current==='need') renderNeed();
+  if(current==='evidence') renderEvidence();
+  if(current==='listener') renderListener();
+  if(current==='gate') renderGate();
+  if(current==='chain') renderChain();
+  if(current==='audit') renderAudit();
+}
+
+/* ---------------- 交互 ---------------- */
+function fillSelects(){
+  $('f-state').innerHTML = '<option value="">全部</option>' + Object.keys(STATES).map(k=>'<option value="'+k+'">'+STATES[k]+'</option>').join('');
+  $('f-type').innerHTML  = '<option value="">全部</option>' + Object.keys(TYPES).map(k=>'<option value="'+k+'">'+TYPES[k]+'</option>').join('');
+  $('n-type').innerHTML  = Object.keys(TYPES).map(k=>'<option value="'+k+'">'+TYPES[k]+'</option>').join('');
+  $('inject-type').innerHTML = Object.keys(EVENTS).map(k=>'<option value="'+k+'">'+EVENTS[k]+'</option>').join('');
+}
+function tick(){
+  if(!running) return;
+  const w = weakEvidence();
+  if(w.length && Math.random() < .75){
+    const p = pick(w);
+    const dd = days(p.e.until);
+    if(p.ev === 'expiry') p.e.state = 'expired';
+    else if(p.ev === 'drift') p.e.state = 'conflict';
+    else if(p.ev === 'source_change') p.e.state = 'stale';
+    ingest(p.e, p.ev, p.ev==='expiry' ? '有效期 '+p.e.until+'（'+dd+' 天后到期）' : '监听器心跳命中');
+  }
+  render();
+}
+function bind(){
+  fillSelects();
+  ['f-state','f-type','f-q'].forEach(id=>$(id).oninput = renderEvidence);
+  $('add-ev').onclick = ()=>{ $('add-card').style.display = $('add-card').style.display==='none'?'block':'none' };
+  $('n-cancel').onclick = ()=>{ $('add-card').style.display='none' };
+  $('n-save').onclick = async ()=>{
+    const claim = $('n-claim').value.trim(); if(!claim){ alert('主张不能为空'); return }
+    const e = { id:'E-'+String(S.evidence.length+1).padStart(3,'0'), claim,
+      type:$('n-type').value, source:$('n-source').value.trim()||'未标注来源',
+      until:$('n-until').value.trim(), verified:new Date().toISOString().slice(0,10),
+      state:'stale', conflicts:0 };
+    S.evidence.push(e);
+    await append('evidence_added', {eid:e.id, claim:e.claim, source:e.source, until:e.until});
+    $('n-claim').value=''; $('n-source').value=''; $('n-until').value='';
+    $('add-card').style.display='none'; save(); render();
+  };
+  $('toggle').onclick = ()=>{ running = !running; $('toggle').textContent = running?'暂停监听':'启动监听'; renderListener() };
+  $('inject').onclick = ()=>{
+    const ev = $('inject-type').value;
+    const pool = S.evidence.filter(e=>{
+      if(ev==='expiry') return e.until !== '' || e.type==='cert';
+      if(ev==='drift')  return e.type==='third';
+      if(ev==='source_change'||ev==='param_change') return e.type==='spec';
+      return true;
+    });
+    // 优先选一条当前门禁会放行的证据，让演示能看到完整链路
+    const openable = pool.filter(e=>{ const r = gate(e, ev);
+      return r && r.decide === 'open' && !S.tickets.some(t=>t.eid===e.id && t.state==='proposed') });
+    const e = openable.length ? pick(openable) : (pool.length ? pick(pool) : pick(S.evidence));
+    ingest(e, ev, '人工注入');
+  };
+  $('verify').onclick = async ()=>{
+    const r = await verifyChain();
+    $('verify-out').innerHTML = '<div class="banner '+(r.ok?'ok':'bad')+'">'+
+      (r.ok ? '校验通过：'+r.n+' 块全部自洽，无篡改、无重排、无删除。'
+            : '校验失败：第 '+r.at+' 块 —— '+r.why)+
+      '</div>';
+    if(!r.ok){ S.tampered = r.at; renderChain() }
+  };
+  $('tamper').onclick = async ()=>{
+    if(S.chain.length < 3){ $('verify-out').innerHTML = '<div class="banner info">链太短，先产生一些事件。</div>'; return }
+    const i = 1 + Math.floor(Math.random()*(S.chain.length-2));
+    const b = S.chain[i];
+    b.payload = Object.assign({}, b.payload, {tampered:true, note:'事后被改写的记录'});
+    S.tampered = i; save();
+    $('verify-out').innerHTML = '<div class="banner bad">已改写第 '+i+' 块的 payload（哈希未同步更新）。点「校验全链」看它会怎么暴露。</div>';
+    renderChain();
+  };
+  $('anchor').onclick = async ()=>{
+    const tip = S.chain.length ? S.chain[S.chain.length-1].hash : ZERO;
+    const a = { at:Date.now(), root:tip, height:S.chain.length };
+    await append('anchor', {root:tip, height:S.chain.length});
+    S.anchors.push(a); save();
+    $('anchor-out').innerHTML = '<div class="banner info">已锚定：根 '+short(tip)+' · 高度 '+S.chain.length+
+      '。把这段凭证抄到 Agent 改不了的地方（时间戳服务 / 公开账本 / 第三方存证）。此后链上任何改动都会被「链已偏离锚点」抓到。</div>';
+    render();
+  };
+  $('export').onclick = ()=>{ current='audit'; render(); window.scrollTo(0,0) };
+  $('copy-json').onclick = ()=>{ navigator.clipboard.writeText(window.__pack||'');
+    $('copy-json').textContent='已复制'; setTimeout(()=>$('copy-json').textContent='复制审计包',1200) };
+  $('dl-json').onclick = ()=>{
+    const blob = new Blob([window.__pack||'{}'], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'mto-audit-'+Date.now()+'.json'; a.click();
+  };
+  $('reset').onclick = async ()=>{
+    if(!confirm('清空本地演示数据并重新播种？')) return;
+    S = fresh(); await boot(); save(); render();
+  };
+}
+
+/* ---------------- 启动 ---------------- */
+async function boot(){
+  if(!S.chain.length){
+    await append('genesis', {tool:'MTO 可信链机器人', note:'证据台账入册，链开始'});
+    for(const e of S.evidence){ await append('evidence_added', {eid:e.id, claim:e.claim, source:e.source, until:e.until}) }
+  }
+}
+(async function start(){
+  const saved = load();
+  S = saved || fresh();
+  if(!saved) recomputeStates();
+  await boot();
+  bind(); render(); save();
+  timer = setInterval(tick, 6000);
+})();
+})();
+</script>
+</body>
+</html>
